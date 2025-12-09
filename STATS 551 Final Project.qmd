@@ -7,12 +7,81 @@ editor: visual
 
 ## Data
 
-Hierarchical structure comes from multiple appointments per patient IDs ,i.e. no-shows (which we are interested in measuring), is nested within appointment, which is nested within patient ID.
+Hierarchical structure comes from multiple appointments per patient IDs, i.e. no-shows (which we are interested in measuring), is nested within appointment, which is nested within patient ID. Data comes from Kaggle.
+
+https://www.kaggle.com/datasets/joniarroba/noshowappointments
 
 ```{r}
+library(brms)
+
 noshow <- read.csv("KaggleV2-May-2016.csv")
+
+
+# Want to regress No.show on 
+
+# Find the mean and standard deviation for Age and proportion of female in the Gender variable to inform priors
+
+mean(noshow$Age)
+sd(noshow$Age)
+
+noshow$Gender <- ifelse(noshow$Gender == "F", 1, 0)
+mean(noshow$Gender)
+
+mean(noshow$SMS_received)
+
+mean(noshow$Scholarship)
+
+# Set priors
+
+priors_noshow <- c(set_prior(prior = "normal(37, 23)", class = "b", coef = "Age"))
+
+noshow$No.show <- ifelse(noshow$No.show == "Yes", 1, 0)
+
+# iteration default is 2000 and default chains is 4
+
+NoShowFit <- brm(
+  No.show ~ Age + Gender + SMS_received + Scholarship, #+ (1 | PatientId),
+  data = noshow,
+  prior = priors_noshow,
+  family = bernoulli(),
+  iter = 1400,
+  warmup = 600,
+  chains = 2
+)
+
+summary(NoShowFit)
+
+plot(NoShowFit, ask = FALSE)
 ```
 
 ```{r}
+library(brms)
+library(dplyr)
+data("penguins")
+penguins <- penguins %>%
+    mutate(body_mass_kg = body_mass / 1000)
+summary(penguins)
+# Fit model
+fit_peng_boring <- lm(
+    body_mass_kg ~ species + sex + bill_len + flipper_len,
+    data = penguins
+)
+summary(fit_peng_boring)
+# Fit bayesian model
+fit_peng <- brm(
+    body_mass_kg ~ species + sex + bill_len + flipper_len,
+    data = penguins,
+    refresh = 0
+)
+summary(fit_peng)
 
+fit_peng <- update(
+    fit_peng,
+    warmup = 700,
+    iter = 1400,
+    chains = 1,
+    recompile = NULL # Run same model without recompiling
+)
+summary(fit_peng)
+plot(fit_peng, ask = FALSE)
 ```
