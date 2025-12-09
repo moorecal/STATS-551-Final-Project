@@ -1,0 +1,18 @@
+---
+title: "STATS 551 Final Project"
+author: "Calder Moore"
+format: pdf
+editor: visual
+---
+
+## Data
+
+Hierarchical structure comes from multiple appointments per patient IDs ,i.e. no-shows (which we are interested in measuring), is nested within appointment, which is nested within patient ID.
+
+```{r}
+noshow <- read.csv("KaggleV2-May-2016.csv")
+```
+
+```{r}
+
+```
