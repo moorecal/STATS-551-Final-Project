@@ -11,7 +11,7 @@ Hierarchical structure comes from multiple appointments per patient IDs, i.e. no
 
 https://www.kaggle.com/datasets/joniarroba/noshowappointments
 
-```{r}
+```{r, fig.width = 7, fig.height = 10}
 library(brms)
 
 noshow <- read.csv("KaggleV2-May-2016.csv")
@@ -24,13 +24,6 @@ noshow <- read.csv("KaggleV2-May-2016.csv")
 mean(noshow$Age)
 sd(noshow$Age)
 
-noshow$Gender <- ifelse(noshow$Gender == "F", 1, 0)
-mean(noshow$Gender)
-
-mean(noshow$SMS_received)
-
-mean(noshow$Scholarship)
-
 # Set priors
 
 priors_noshow <- c(set_prior(prior = "normal(37, 23)", class = "b", coef = "Age"))
@@ -39,49 +32,81 @@ noshow$No.show <- ifelse(noshow$No.show == "Yes", 1, 0)
 
 # iteration default is 2000 and default chains is 4
 
+# Try parallel processing to make it go a bit faster?
+
+options(mc.cores = parallel::detectCores())
+
 NoShowFit <- brm(
-  No.show ~ Age + Gender + SMS_received + Scholarship, #+ (1 | PatientId),
+  No.show ~ Age + Gender + SMS_received + Scholarship + (1 | PatientId),
   data = noshow,
   prior = priors_noshow,
   family = bernoulli(),
   iter = 1400,
   warmup = 600,
-  chains = 2
+  chains = 2,
+  cores = 12
 )
 
 summary(NoShowFit)
 
 plot(NoShowFit, ask = FALSE)
+
+pp_check(NoShowFit, ndraws = 20)
 ```
 
 ```{r}
-library(brms)
-library(dplyr)
-data("penguins")
-penguins <- penguins %>%
-    mutate(body_mass_kg = body_mass / 1000)
-summary(penguins)
-# Fit model
-fit_peng_boring <- lm(
-    body_mass_kg ~ species + sex + bill_len + flipper_len,
-    data = penguins
-)
-summary(fit_peng_boring)
-# Fit bayesian model
-fit_peng <- brm(
-    body_mass_kg ~ species + sex + bill_len + flipper_len,
-    data = penguins,
-    refresh = 0
-)
-summary(fit_peng)
+# Export figures and results
 
-fit_peng <- update(
-    fit_peng,
-    warmup = 700,
-    iter = 1400,
-    chains = 1,
-    recompile = NULL # Run same model without recompiling
+plot(NoShowFit, ask = FALSE)
+
+png("Fit Plot.png", width = 800, height = 1000)
+plot(NoShowFit, ask = FALSE)
+dev.off()
+
+pp_check(NoShowFit, ndraws = 20)
+
+png("ppcheck.png", width = 800, height = 1000)
+pp_check(NoShowFit, ndraws = 20)
+dev.off()
+
+# Summary stats
+
+vars <- c("No.show", "Age", "Gender", "SMS_received", "Scholarship")
+
+sumstats <- noshow[, vars]
+
+library(stargazer)
+
+stargazer(sumstats,
+          type = "latex",       
+          summary = TRUE,       
+          out = "summary.tex")  
+
+# Model summary
+
+tab <- as.data.frame(posterior_summary(NoShowFit))
+tab$Parameter <- rownames(tab)
+rownames(tab) <- NULL
+
+library(dplyr)
+
+tab <- tab %>% 
+  rename(
+    term = Parameter,
+    estimate = Estimate,
+    std.error = Est.Error,
+    conf.low = Q2.5,
+    conf.high = Q97.5
+  )
+
+
+library(modelsummary)
+
+modelsummary(
+  NoShowFit,
+  output = "model_summary.tex",
+  statistic = c("std.error", "conf.int", "p.value"),
+  estimate = "{estimate} ({std.error})"
 )
-summary(fit_peng)
-plot(fit_peng, ask = FALSE)
+
 ```
